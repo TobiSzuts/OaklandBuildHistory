@@ -130,7 +130,7 @@ for (key, value) in z2.items() :
                         data[closest_parcel['key']]['zillow']['address']['latitude'])).m))
         
         
-#%% Save smaller complete database to file
+#%% Save smaller complete database to file - this is to confirm accuracy of address
 import pickle 
 
 apifile = open('Mapping3_address.pkl', 'wb')
@@ -167,12 +167,12 @@ for (i, (key, value)) in zip(range(20), data_clean.items()) :
     
     print('Address = ' + value['zillow']['address']['street'] + ': Google = ' + gaddress)
     
-#%%  Assemble complete query results
+#%%  Process parcel database to find house number and build info
 """
 Loop through database, first sending geocode query to google, then taking that street
 address and sending it to zillow.
 
-Error codes that can be expected are
+Error codes that can be expected are 506 and 507
 """    
 
 import requests
@@ -182,54 +182,78 @@ import time
 gurl = 'https://maps.googleapis.com/maps/api/geocode/json?'
 zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
 
+# array to store all errors for later analysis
+error_entries = [];
 for (i, (key, value)) in zip(range(200), data.items()) :
+    startT = time.time()
     # extract centroid of this record
     lat = value['centroid'][1]
     long = value['centroid'][0]
-    # set parameters for google map query
-    gp = {'latlng' : '{},{}'.format(lat, long), 'key': gid}
-    # query
-    r = requests.get(gurl, params=gp)
-    # query gives a lot of information on geographic context, including coordinates for city, county, etc.    
-    
-    if r.json()['status'] == 'OK' :
-        gaddress = (r.json()['results'][0]['address_components'][0]['long_name'] + 
-                    ' ' + r.json()['results'][0]['address_components'][1]['short_name'])
-        # save to database
-        value['gaddress'] = gaddress
-    else :
-        print('For record {}, status is {}. Here''s the record:'.format(key, r.json()['status']))
-        print(r.json())
-        print('-'*60)
 
-    zp = {'address' : gaddress, 'citystatezip' : 'Oakland, CA', 
-     'zws-id' : zid}
-
-#    zp['address'] = '{} Spruce Street'.format(num)
-    r = requests.get(zurl, params=zp)
-    
-    r_dict = xmltodict.parse(r.text)['SearchResults:searchresults']
-#    valid response?
-    if r_dict['message']['code'] == '0' :
-        r_dict = r_dict['response']['results']['result']
-        if len(r_dict)>1 :
-            print('{} results: '.format(len(r_dict)))
-            for (i,x) in enumerate(r_dict) :
-                # differs usually (?) in lat, long
-                print('\taddress {}: {}'.format(i, x['address']['street']))
-            r_dict = r_dict[0]
+    try :
+        # set parameters for google map query
+        gp = {'latlng' : '{},{}'.format(lat, long), 'key': gid}
+        # query
+        rg = requests.get(gurl, params=gp)
+        # query gives a lot of information on geographic context, including coordinates for city, county, etc.    
+        
+        if rg.json()['status'] == 'OK' :
+            gaddress = (rg.json()['results'][0]['address_components'][0]['long_name'] + 
+                        ' ' + rg.json()['results'][0]['address_components'][1]['short_name'])
+            # save to database
+            value['gaddress'] = gaddress
+        else :
+            print('For record {}, google status is {}. Here''s the record:'.format(key, rg.json()['status']))
+            print(rg.json())
+            print('-'*60)
+            # and log the error for analysis later
+            error_entries.append({'key': key, 'value':value,
+                                  'google': rg, 'source': 'google'})
             
-        r_dict.pop('links')
-        r_dict.pop('zestimate')
-        r_dict.pop('localRealEstate')
-        value['zillow'] = r_dict
-    else :
-        print('For request {}, code is {}. Here''s the record:'.format(gaddress, r_dict['message']['code']))
-        print(r_dict)
-        print('-'*60)
 
-    print(gaddress)
-    time.sleep(0.2)     # rate limit to 5 calls per second, half as fast as possible 
+        zp = {'address' : gaddress, 'citystatezip' : 'Oakland, CA', 
+         'zws-id' : zid}
+    
+    #    zp['address'] = '{} Spruce Street'.format(num)
+        r = requests.get(zurl, params=zp)
+    
+        r_dict = xmltodict.parse(r.text)['SearchResults:searchresults']
+        # in case the response is a list of multiple entries, take only the first one
+        if type(r_dict)==list :
+            r_dict = r_dict[0]
+    #    valid response?
+        if r_dict['message']['code'] == '0' :
+            r_dict = r_dict['response']['results']['result']
+                
+            r_dict.pop('links')
+            r_dict.pop('zestimate')
+            r_dict.pop('localRealEstate')
+            value['zillow'] = r_dict
+        else :
+            print('For request {}, zillow code is {}. Here''s the record:'.format(gaddress, r_dict['message']['code']))
+            print(r_dict)
+            print('-'*60)
+            error_entries.append({'key': key, 'value':value, 
+                                  'google': r.json(), 'zillow': r,
+                                  'source': 'zillow'})
+
+    except Exception as exc:
+        print('Unspecified error: {}'.format(exc))
+        error_entries.append({'key': value, 'source': 'exception'})
+        
+#        raise exc
+        # these variables may not exist...so ignore any errors there
+        try:        
+            error_entries[-1]['google'] = rg.json()
+            error_entries[-1]['zillow'] = r            
+        except :
+            pass
+            
+    print(i, ' ', gaddress)
+    
+    endT = time.time()
+    if endT - startT < 0.2 :
+        time.sleep(0.2 - (endT-startT))     # rate limit to 5 calls per second, half as fast as possible 
     
 #%% Save complete database to file
 import pickle 
@@ -238,3 +262,23 @@ apifile = open('ClevelandHeights_250m_radius_complete.pkl', 'wb')
 a = pickle.Pickler(apifile)
 a.dump(data)
 apifile.close()
+
+#%% Load complete database
+
+import pickle
+
+datafile = open('ClevelandHeights_250m_radius_complete.pkl', 'rb')
+#data = pickle.load(datafile)
+data_complete = pickle.load(datafile)
+datafile.close()
+
+#%% correct errors in dataset manually
+
+for x in error_entries :
+    for (key, values) in data.items() :
+        if x['key']['centroid'] == values['centroid']:
+            print(key)
+            
+            
+    
+    
