@@ -169,7 +169,7 @@ for (i, (key, value)) in zip(range(20), data_clean.items()) :
     
 #%%  Process parcel database to find house number and build info
 """
-Loop through database, first sending geocode query to google, then taking that street
+Loop through geojson database, first sending geocode query to google, then taking that street
 address and sending it to zillow.
 
 Error codes that can be expected are 506 and 507
@@ -183,7 +183,7 @@ gurl = 'https://maps.googleapis.com/maps/api/geocode/json?'
 zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
 
 # array to store all errors for later analysis
-error_entries = [];
+error_entries = []
 for (i, (key, value)) in zip(range(200), data.items()) :
     startT = time.time()
     # extract centroid of this record
@@ -270,7 +270,8 @@ import pickle
 datafile = open('ClevelandHeights_250m_radius_complete.pkl', 'rb')
 #data = pickle.load(datafile)
 data_complete = pickle.load(datafile)
-datafile.close()
+#data = pickle.load(datafile)
+#datafile.close()
 
 #%% correct errors in dataset manually
 
@@ -280,5 +281,65 @@ for x in error_entries :
             print(key)
             
             
+#%% Load shape file and convert to dictionary with distance as key
+
+import fiona
+import geopy.distance
+distance = geopy.distance.vincenty    
+import shapely.geometry as shp
+import pickle 
+
+baseFile = 'data/Oakland_parcels/parcels'
+
+center = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
+radius = 0.5                          # in km
+ur = distance(kilometers=radius).destination(center, +45)    # find coordinate a certain distance and heading away from center
+ll = distance(kilometers=radius).destination(center, -135)
+ur = (ur.longitude, ur.latitude)
+ll = (ll.longitude, ll.latitude)
+ROI = (*ll, *ur)
+
+counter = 0
+
+data_raw = {}
+data_duplicates = {}
+# Register format drivers with a context manager
+with fiona.drivers():
+
+    # Open the file to read
+    with fiona.open(baseFile + '.shp') as source:
+
+#        for (f, i) in zip(source.filter(bbox=ROI), range(6)) :
+#        for (f, i) in zip(source, range(6)) :
+        for f in source :
+            counter += 1
+            if 'geometry' not in f:
+                print('No geometry key in entry {}'.format(f))
+            c = shp.shape(f['geometry']).centroid
+            p = (c.y, c.x)
+
+            d = round(distance(p, center).m * 10**6)/10**6        # round to mm
+#            d = distance(p, center).m
+            f['centroid'] = p            
+
+            if d in data_raw :
+                # create a dictionary where each entry is a list - since not 
+                # guaranteed to exist the first time, initialize here
+                if d in data_duplicates :
+                    data_duplicates[d].append(f)
+                else :
+                    data_duplicates[d] = [data_raw[d], f]
+#                print('Key {} is duplicated.'.format(d))
+            else :
+                data_raw[d] = f
+                            
+#            print('Distance = {:6.4f} m'.format(round(d*1000)/1000))    
+
+# save to file
+apifile = open('data/OaklandParcels_dictionary.pkl', 'wb')
+a = pickle.Pickler(apifile)
+a.dump(data_raw)
+apifile.close()
+
     
     

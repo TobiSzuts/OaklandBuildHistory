@@ -5,7 +5,7 @@ Created on Wed May 11 13:20:36 2016
 @author: tobis
 
 Reads a large geojson file and put into local memory only those parcels that are
-within a certain distance of a marker
+within a certain distance of a marker.
 """
 
 import ijson
