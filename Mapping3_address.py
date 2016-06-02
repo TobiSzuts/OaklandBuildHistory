@@ -281,7 +281,7 @@ for x in error_entries :
             print(key)
             
             
-#%% Load shape file and convert to dictionary with distance as key
+#%% Load shape file and convert to dictionary with distance as key, removing any duplicates
 
 import fiona
 import geopy.distance
@@ -341,5 +341,131 @@ a = pickle.Pickler(apifile)
 a.dump(data_raw)
 apifile.close()
 
+#%% Initialize blank output dictionary
+fid = open('data/DataInProcess/OaklandParcels_queried.pkl', 'wb')
+data_queried = {}
+a = pickle.Pickler(fid)
+a.dump(data_queried)
+fid.close()
+
+#%% Send query to zillow and move record to a new dictionary - NOT COMPLETED!!!
+"""
+Loop through geojson database, first sending geocode query to google, then taking that street
+address and sending it to zillow.
+
+Error codes that can be expected are 506 and 507
+"""    
+
+import requests
+import xmltodict
+import time
+import pickle
+
+inputFile = 'data/DataInProcess/OaklandParcels_raw.pkl'
+outputFile 'data/DataInProcess/OaklandParcels_queried.pkl'
+
+fid = open(inputFile, 'rb')
+data_raw = pickle.load(fid)
+fid.close()
+
+zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
+
+
+
+# array to store all errors for later analysis
+error_entries = []
+for (i, (key, value)) in zip(range(200), data.items()) :
+    startT = time.time()
+    # extract centroid of this record
+    lat = value['centroid'][1]
+    long = value['centroid'][0]
+
+    try :
+            
+
+        zp = {'address' : gaddress, 'citystatezip' : 'Oakland, CA ', 
+         'zws-id' : zid}
     
+    #    zp['address'] = '{} Spruce Street'.format(num)
+        r = requests.get(zurl, params=zp)
+    
+        r_dict = xmltodict.parse(r.text)['SearchResults:searchresults']
+        # in case the response is a list of multiple entries, take only the first one
+        if type(r_dict)==list :
+            r_dict = r_dict[0]
+    #    valid response?
+        if r_dict['message']['code'] == '0' :
+            r_dict = r_dict['response']['results']['result']
+                
+            r_dict.pop('links')
+            r_dict.pop('zestimate')
+            r_dict.pop('localRealEstate')
+            value['zillow'] = r_dict
+        else :
+            print('For request {}, zillow code is {}. Here''s the record:'.format(gaddress, r_dict['message']['code']))
+            print(r_dict)
+            print('-'*60)
+            error_entries.append({'key': key, 'value':value, 
+                                  'google': r.json(), 'zillow': r,
+                                  'source': 'zillow'})
+
+    except Exception as exc:
+        print('Unspecified error: {}'.format(exc))
+        error_entries.append({'key': value, 'source': 'exception'})
+        
+#        raise exc
+        # these variables may not exist...so ignore any errors there
+        try:        
+            error_entries[-1]['google'] = rg.json()
+            error_entries[-1]['zillow'] = r            
+        except :
+            pass
+            
+    print(i, ' ', gaddress)
+    
+    endT = time.time()
+    if endT - startT < 0.2 :
+        time.sleep(0.2 - (endT-startT))     # rate limit to 5 calls per second, half as fast as possible 
+
+
+#%% Convert dictionary to shape file, filtering by distance if desired
+# DOESN'T WORK - GETS "'float' object is not subscriptable' error
+
+import fiona
+import os
+
+baseFile = 'data/Oakland_parcels/parcels'
+outputFileName = 'Oakland_parcels_queried'
+
+# create output directory if it doesn't exist yet
+if os.path.isdir('data/' + outputFileName) is False :
+    os.makedirs('data/' + outputFileName)
+outputFile = 'data/' + outputFileName + '/' + outputFileName + '.shp'
+    
+radius = 500                          # in m
+
+
+counter = 0
+# Register format drivers with a context manager
+with fiona.drivers():
+
+    # read original file to get schema info
+    with fiona.open(baseFile + '.shp') as source:
+        meta = source.meta
+    
+    meta['schema']['centroid'] = ('float:19:11', 'float:19:11')
+    meta['schema']['id'] = 'float:19:11'
+    meta['schema']['type'] = 'str:50'
+    #meta['schema']['yearBuilt'] = 'float'
+
+    with fiona.open(outputFile, 'w', **meta) as sink:
+
+        # Process only the records intersecting a box.
+        for (i,f) in zip(range(5), data_raw) :
+#            if f <= radius :   
+                sink.write(f)
+                counter += 1
+                print('Writing %f' % f)
+
+
     
