@@ -624,7 +624,7 @@ baseFile = 'data/Oakland_parcels_subset/parcels'# radius of 1e-2
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
 center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 0.5                           # in km
+radius = 0.2                           # in km
 ur = distance(kilometers=radius).destination(center, +45)
 ll = distance(kilometers=radius).destination(center, -135)
 ur = (ur.longitude, ur.latitude)

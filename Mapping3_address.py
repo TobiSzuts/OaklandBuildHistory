@@ -341,16 +341,26 @@ a = pickle.Pickler(apifile)
 a.dump(data_raw)
 apifile.close()
 
-#%% Initialize blank output dictionary
-fid = open('data/DataInProcess/OaklandParcels_queried.pkl', 'wb')
+#%% Initialize blank output dictionary, load data 
+import pickle
+# reload original data
+datafile = open('data/OaklandParcels_dictionary.pkl', 'rb')
+data_raw = pickle.load(datafile)
+datafile.close()
+
+# and resave it into the processing file
+datafile = open('data/DataInProcess/OaklandParcels_raw.pkl', 'wb')
+a = pickle.Pickler(datafile)
+a.dump(data_raw)
 data_queried = {}
-a = pickle.Pickler(fid)
+data_errors = []
 a.dump(data_queried)
-fid.close()
+a.dump(data_errors)
+datafile.close()
 
 #%% Send query to zillow and move record to a new dictionary - NOT COMPLETED!!!
 """
-Loop through geojson database, first sending geocode query to google, then taking that street
+Loop through database, first sending geocode query to google, then taking that street
 address and sending it to zillow.
 
 Error codes that can be expected are 506 and 507
@@ -361,75 +371,79 @@ import xmltodict
 import time
 import pickle
 
-inputFile = 'data/DataInProcess/OaklandParcels_raw.pkl'
-outputFile 'data/DataInProcess/OaklandParcels_queried.pkl'
+inProcessFile = 'data/OaklandParcels_inProcess.pkl'
 
-fid = open(inputFile, 'rb')
+# load data structures
+fid = open(inProcessFile, 'rb')
 data_raw = pickle.load(fid)
+try :
+    data_queried = pickle.load(fid)
+except EOFError:            # if dict is empty
+    data_queried = {}
+try :
+    data_errors = pickle.load(fid)
+except EOFError:            # if dict is empty
+    data_errors = []
 fid.close()
 
+#%%
 zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
+radius = 500            # only process parcels within this radius
 
-
+sortedKeys = [k for k in sorted(data_raw) if k < radius]
 
 # array to store all errors for later analysis
-error_entries = []
-for (i, (key, value)) in zip(range(200), data.items()) :
+
+#for (i, (key, value)) in zip(range(5), data.items()) :
+for (i, key) in zip(range(900), sortedKeys) :
     startT = time.time()
     # extract centroid of this record
-    lat = value['centroid'][1]
-    long = value['centroid'][0]
 
     try :
-            
-
-        zp = {'address' : gaddress, 'citystatezip' : 'Oakland, CA ', 
-         'zws-id' : zid}
-    
-    #    zp['address'] = '{} Spruce Street'.format(num)
+        zp = {'address' : '{} {} {}'.format(data_raw[key]['properties']['ADDR_HN'],
+                      data_raw[key]['properties']['ADDR_SN'],
+                      data_raw[key]['properties']['ADDR_ST']),
+              'citystatezip' : 'Oakland, CA ' + str(data_raw[key]['properties']['ZIP']),
+              'zws-id' : zid}
+              
         r = requests.get(zurl, params=zp)
-    
         r_dict = xmltodict.parse(r.text)['SearchResults:searchresults']
-        # in case the response is a list of multiple entries, take only the first one
-        if type(r_dict)==list :
-            r_dict = r_dict[0]
     #    valid response?
         if r_dict['message']['code'] == '0' :
             r_dict = r_dict['response']['results']['result']
-                
+            
+            # in case the response is a list of multiple entries, take only the first one
+            if type(r_dict)==list :
+                r_dict = r_dict[0]
+            
             r_dict.pop('links')
             r_dict.pop('zestimate')
             r_dict.pop('localRealEstate')
-            value['zillow'] = r_dict
+            data_raw[key]['zillow'] = r_dict
+            # just transfer  to new structure
+            data_queried[key] = data_raw.pop(key)
+            
         else :
-            print('For request {}, zillow code is {}. Here''s the record:'.format(gaddress, r_dict['message']['code']))
+            print('For request {}, zillow code is {}. Here''s the record:'.format(zp['address'], r_dict['message']['code']))
             print(r_dict)
             print('-'*60)
-            error_entries.append({'key': key, 'value':value, 
-                                  'google': r.json(), 'zillow': r,
-                                  'source': 'zillow'})
-
+            # transfer to error structure
+            data_errors.append({'key': key, 'value': data_raw.pop(key), 
+                                  'zillow': r_dict, 'source': 'zillow'})
     except Exception as exc:
         print('Unspecified error: {}'.format(exc))
-        error_entries.append({'key': value, 'source': 'exception'})
-        
+        data_errors.append({'key': key, 'value': data_raw.pop(key),
+                              'source': 'exception'})
 #        raise exc
-        # these variables may not exist...so ignore any errors there
-        try:        
-            error_entries[-1]['google'] = rg.json()
-            error_entries[-1]['zillow'] = r            
-        except :
-            pass
             
-    print(i, ' ', gaddress)
-    
+    print(i, ' ', zp['address'])
+
     endT = time.time()
     if endT - startT < 0.2 :
         time.sleep(0.2 - (endT-startT))     # rate limit to 5 calls per second, half as fast as possible 
 
 
 #%% Convert dictionary to shape file, filtering by distance if desired
-# DOESN'T WORK - GETS "'float' object is not subscriptable' error
 
 import fiona
 import os
@@ -453,19 +467,25 @@ with fiona.drivers():
     with fiona.open(baseFile + '.shp') as source:
         meta = source.meta
     
+    # add fields to schema file
     meta['schema']['centroid'] = ('float:19:11', 'float:19:11')
     meta['schema']['id'] = 'float:19:11'
     meta['schema']['type'] = 'str:50'
-    #meta['schema']['yearBuilt'] = 'float'
+    meta['schema']['yearBuilt'] = 'float'
 
     with fiona.open(outputFile, 'w', **meta) as sink:
 
         # Process only the records intersecting a box.
-        for (i,f) in zip(range(5), data_raw) :
-#            if f <= radius :   
-                sink.write(f)
+        for (i,f) in zip(range(500000), data_raw) :
+            if f <= radius :   
+#                e = data_raw[f].copy()
+#                e['yearBuilt'] = 1979   # only needed for testing - will be added later
+#                sink.write(e)
+                data_raw[f]['yearBuilt'] = 1979
+                sink.write(data_raw[f])
                 counter += 1
-                print('Writing %f' % f)
+#                print('Writing %f' % f)
+                
 
 
     
