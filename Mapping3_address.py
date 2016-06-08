@@ -344,21 +344,20 @@ apifile.close()
 #%% Initialize blank output dictionary, load data 
 import pickle
 # reload original data
-datafile = open('data/OaklandParcels_dictionary.pkl', 'rb')
-data_raw = pickle.load(datafile)
-datafile.close()
+with open('data/OaklandParcels_dictionary.pkl', 'rb') as datafile :
+    data_raw = pickle.load(datafile)
 
 # and resave it into the processing file
-datafile = open('data/DataInProcess/OaklandParcels_raw.pkl', 'wb')
-a = pickle.Pickler(datafile)
-a.dump(data_raw)
-data_queried = {}
-data_errors = []
-a.dump(data_queried)
-a.dump(data_errors)
-datafile.close()
+with open('data/OaklandParcels_inProcess.pkl', 'wb') as datafile :
+    a = pickle.Pickler(datafile)
+    compressed = {}
+    compressed['data_raw'] = data_raw
+    compressed['data_queried'] = {}
+    compressed['data_errors'] = []
+    a.dump(compressed)
 
-#%% Send query to zillow and move record to a new dictionary - NOT COMPLETED!!!
+#%% Send query to zillow and move record to a new dictionary -
+# moved to CreateParcelDatabase.py
 """
 Loop through database, first sending geocode query to google, then taking that street
 address and sending it to zillow.
@@ -374,21 +373,17 @@ import pickle
 inProcessFile = 'data/OaklandParcels_inProcess.pkl'
 
 # load data structures
-fid = open(inProcessFile, 'rb')
-data_raw = pickle.load(fid)
-try :
-    data_queried = pickle.load(fid)
-except EOFError:            # if dict is empty
-    data_queried = {}
-try :
-    data_errors = pickle.load(fid)
-except EOFError:            # if dict is empty
-    data_errors = []
-fid.close()
+with open(inProcessFile, 'rb') as fid :
+    compressed = pickle.load(fid)
+
+data_raw = compressed['data_raw']
+data_queried = compressed['data_queried']
+data_errors = compressed['data_errors']
+#del compressed
 
 #%%
 zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
-radius = 500            # only process parcels within this radius
+radius = 1000            # only process parcels within this radius
 
 sortedKeys = [k for k in sorted(data_raw) if k < radius]
 
@@ -443,10 +438,29 @@ for (i, key) in zip(range(900), sortedKeys) :
         time.sleep(0.2 - (endT-startT))     # rate limit to 5 calls per second, half as fast as possible 
 
 
+#%% Save inProcessData
+#inProcessFile = 'data/OaklandParcels_inProcess.pkl'
+compressed = {}
+compressed['data_raw'] = data_raw
+compressed['data_queried'] = data_queried
+compressed['data_errors'] = data_errors
+with open(inProcessFile, 'wb') as fid :
+    a = pickle.Pickler(fid)
+    a.dump(compressed)
+
+#%% Function to reorder a dictionary
+
+#def ReorderOrderedDict(d, order) :
+#    for k in 
+#
+#for k in a :
+#    print(k)
+
 #%% Convert dictionary to shape file, filtering by distance if desired
 
 import fiona
 import os
+from collections import OrderedDict
 
 baseFile = 'data/Oakland_parcels/parcels'
 outputFileName = 'Oakland_parcels_queried'
@@ -466,26 +480,76 @@ with fiona.drivers():
     # read original file to get schema info
     with fiona.open(baseFile + '.shp') as source:
         meta = source.meta
+        schema = source.schema.copy()
     
+#    print(len(meta))
     # add fields to schema file
     meta['schema']['centroid'] = ('float:19:11', 'float:19:11')
-    meta['schema']['id'] = 'float:19:11'
+    meta['schema']['id'] = 'float:19'
     meta['schema']['type'] = 'str:50'
-    meta['schema']['yearBuilt'] = 'float'
+    meta['schema']['yearBuilt'] = 'float:10'
+    meta['schema']['properties']['YEARBUILT'] = 'int:6'
+    meta['schema']['properties'] = OrderedDict(meta['schema']['properties'])
+    
+    schemaOrder = meta['schema']['properties']
 
     with fiona.open(outputFile, 'w', **meta) as sink:
+#    with fiona.open(outputFile, 'w', **meta) as sink:
 
         # Process only the records intersecting a box.
-        for (i,f) in zip(range(500000), data_raw) :
+        for (i,f) in zip(range(1000), data_queried) :
             if f <= radius :   
 #                e = data_raw[f].copy()
 #                e['yearBuilt'] = 1979   # only needed for testing - will be added later
 #                sink.write(e)
-                data_raw[f]['yearBuilt'] = 1979
-                sink.write(data_raw[f])
+                try :
+                    if 'yearBuilt' in data_queried[f]['zillow'] :
+                        data_queried[f]['properties']['YEARBUILT'] = data_queried[f]['zillow']['yearBuilt']
+                        data_queried[f].pop('zillow')
+                    else :
+                        data_queried[f]['properties']['YEARBUILT'] = 0
+                except KeyError :
+                    pass
+                # need to reorder this dictionary to match schema order
+                data_queried[f]['properties'] = OrderedDict(
+                        (k, data_queried[f]['properties'][k]) for k in schemaOrder)                
+                
+                sink.write(data_queried[f])
                 counter += 1
 #                print('Writing %f' % f)
                 
 
+#%% CHECK whether shapefile was encoded properly
+baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'  # radius of 500 m
 
+center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
+radius = 0.2                           # in km
+ur = distance(kilometers=radius).destination(center, +45)
+ll = distance(kilometers=radius).destination(center, -135)
+ur = (ur.longitude, ur.latitude)
+ll = (ll.longitude, ll.latitude)
+
+extra = 0.01           # padding
+coords = list(chain(ll, ur))
+w, h = coords[2] - coords[0], coords[3] - coords[1]
+
+m = Basemap(
+    projection='tmerc',
+    lon_0=-122.,
+    lat_0=37.,
+    ellps = 'WGS84',
+    llcrnrlon=coords[0] - extra * w,
+    llcrnrlat=coords[1] - extra * h,
+    urcrnrlon=coords[2] + extra * w,
+    urcrnrlat=coords[3] + extra * h,
+    lat_ts=0,
+    resolution='i',
+    suppress_ticks=True)
+
+m.readshapefile(
+    baseFile,
+    'oakland',
+    color='blue',
+    zorder=2)
     
+m.oakland_info[0]
