@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Save python dictionary created by CreateParcelDatabase.py into a shapefile.
+Save python error dictionary created by CreateParcelDatabase.py into a shapefile.
 This requires that the scheme of the original shapefile is modified in the 
 same way as the output dictionary.  Optionally, can filter results by distance
 from central marker.
 
-Created on Wed Jun  8 09:51:27 2016
+Created on Mon Jun 13 14:28:11 2016
 @author: tobis
 """
 
@@ -21,10 +21,12 @@ with open(inProcessFile, 'rb') as fid :
 # ...and unpack
 data_raw = compressed['data_raw']
 data_queried = compressed['data_queried']
+data_errors_array = compressed['data_errors']
 del compressed
+data_errors = {f['key']: f for f in data_errors_array}
 
 baseFile = 'data/Oakland_parcels/parcels'       # source of shape info in dictionary
-outputFileName = 'Oakland_parcels_queried'
+outputFileName = 'Oakland_parcels_errors'
 radius = 2000                                   # in m
 
 # create output directory if it doesn't exist yet
@@ -48,16 +50,20 @@ with fiona.drivers():
     schemaOrder = meta['schema']['properties']
 
     with fiona.open(outputFile, 'w', **meta) as sink:
-        for (i,f) in enumerate(data_queried) :
+        for (i,f) in enumerate(data_errors) :
             if f <= radius :   
-                if 'yearBuilt' in data_queried[f]['zillow'] :
-                    data_queried[f]['properties']['YEARBUILT'] = data_queried[f]['zillow']['yearBuilt']
-                    data_queried[f].pop('zillow')
-                else :
-                    data_queried[f]['properties']['YEARBUILT'] = np.nan
+                data_errors[f]['properties'] = data_errors[f]['value']['properties']
+                data_errors[f]['centroid'] = data_errors[f]['value']['centroid']
+                data_errors[f]['id'] = data_errors[f]['value']['id']
+                data_errors[f]['geometry'] = data_errors[f]['value']['geometry']
+                data_errors[f]['properties']['YEARBUILT'] = np.nan
+                data_errors[f].pop('key')
+                data_errors[f].pop('zillow')
+                data_errors[f].pop('value')
+#                data_errors[f]['value'].pop('centroid')
                 # reorder dictionary to match schema order
-                data_queried[f]['properties'] = OrderedDict(
-                        (k, data_queried[f]['properties'][k]) for k in schemaOrder)                
+                data_errors[f]['properties'] = OrderedDict(
+                        (k, data_errors[f]['properties'][k]) for k in schemaOrder)                
                 
-                sink.write(data_queried[f])
+                sink.write(data_errors[f])
                 

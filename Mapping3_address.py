@@ -292,12 +292,12 @@ import pickle
 baseFile = 'data/Oakland_parcels/parcels'
 
 center = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 0.5                          # in km
-ur = distance(kilometers=radius).destination(center, +45)    # find coordinate a certain distance and heading away from center
-ll = distance(kilometers=radius).destination(center, -135)
-ur = (ur.longitude, ur.latitude)
-ll = (ll.longitude, ll.latitude)
-ROI = (*ll, *ur)
+#radius = 2                          # in km
+#ur = distance(kilometers=radius).destination(center, +45)    # find coordinate a certain distance and heading away from center
+#ll = distance(kilometers=radius).destination(center, -135)
+#ur = (ur.longitude, ur.latitude)
+#ll = (ll.longitude, ll.latitude)
+#ROI = (*ll, *ur)
 
 counter = 0
 
@@ -308,9 +308,8 @@ with fiona.drivers():
 
     # Open the file to read
     with fiona.open(baseFile + '.shp') as source:
-
+        
 #        for (f, i) in zip(source.filter(bbox=ROI), range(6)) :
-#        for (f, i) in zip(source, range(6)) :
         for f in source :
             counter += 1
             if 'geometry' not in f:
@@ -340,6 +339,13 @@ apifile = open('data/OaklandParcels_dictionary.pkl', 'wb')
 a = pickle.Pickler(apifile)
 a.dump(data_raw)
 apifile.close()
+
+#%% Verify that duplicate entries make up the list
+
+duplicateParcels = 0
+for (key, value) in data_duplicates.items() :
+    duplicateParcels += len(value)
+print('Total number of duplicate parcels: %d' % (duplicateParcels-len(data_duplicates)))
 
 #%% Initialize blank output dictionary, load data 
 import pickle
@@ -553,3 +559,8 @@ m.readshapefile(
     zorder=2)
     
 m.oakland_info[0]
+
+#%% code for jupyter notebook
+with fiona.open(baseFile + '.shp') as source:
+    source.next()    
+    print(source.next())
