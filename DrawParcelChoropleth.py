@@ -27,9 +27,9 @@ baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
 center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 0.25                           # in km
-ur = distance(kilometers=radius).destination(center, +45)
-ll = distance(kilometers=radius).destination(center, -135)
+radius = 1                           # in km
+ur = distance(kilometers=radius*2**0.5).destination(center, +45)
+ll = distance(kilometers=radius*2**0.5).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
 ll = (ll.longitude, ll.latitude)
 
@@ -50,18 +50,11 @@ m = Basemap(
     resolution='i',
     suppress_ticks=True)
 
-window = [ll, (ll[0], ur[1]), ur, (ur[0], ll[1]), ll]
-# convert into map coordinates, unpacking and then repacking tuples
-window = list(zip( *m(*list(zip(*window))) ))
-window_map = pd.DataFrame({'poly': [Polygon(window)]})
-window_polygon = prep(MultiPolygon(list(window_map['poly'].values)))
-
 m.readshapefile(
     baseFile,
     'oakland',
     color='blue',
     zorder=2)
- 
   
 # set up a map dataframe
 df_map = pd.DataFrame({
@@ -70,39 +63,40 @@ df_map = pd.DataFrame({
     'zip': [obj['ZIP'] for obj in m.oakland_info],
     'yearBuilt': [obj['YEARBUILT'] for obj in m.oakland_info]})
 
-# Remove any shapes that are outside the map window
-#df_map = df_map[ [window_polygon.intersects(i) for i in df_map.poly] ]
+# Create projection view as a polygon to filter shapes
+window = [ll, (ll[0], ur[1]), ur, (ur[0], ll[1]), ll]
+window = list(zip( *m(*list(zip(*window))) ))
+window_map = pd.DataFrame({'poly': [Polygon(window)]})
+window_polygon = prep(MultiPolygon(list(window_map['poly'].values)))
 
-# #%% Plot everything
+# Remove any shapes that are outside the map window
+df_map = df_map[ [window_polygon.intersects(i) for i in df_map.poly] ]
+
 # draw tract patches from polygons
 df_map['patches'] = df_map['poly'].map(lambda x: PolygonPatch(
     x,
     ec='#787878', lw=.25, alpha=.9,
     zorder=4))
 
-
 # create colormap based on year built
 cmap_range = (1880, 1940)
 ncolors = 8
 yearBuilt_bins = np.linspace(min(cmap_range), max(cmap_range), ncolors+1)
-#norm = matplotlib.colors.Normalize(vmin=min(cmap_range), vmax=max(cmap_range))
 cmap = matplotlib.cm.coolwarm
 cmap.set_bad(color='white')       # if yearBuilt is nan
 norm = matplotlib.colors.BoundaryNorm(yearBuilt_bins, ncolors)
-#setColor = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
 
 plt.clf()
 fig = plt.figure()
 ax = fig.add_subplot(111, axisbg='w', frame_on=False)
 
-# plot boroughs by adding the PatchCollection to the axes instance
+# plot parcels by adding the PatchCollection to the axes instance
 pc = PatchCollection(df_map['patches'].values, match_original=True)
 pc.set_facecolor(cmap(norm(df_map.yearBuilt)/ncolors));
 ax.add_collection(pc)
 
 yearBuilt_labels = ['%.0f-%.0f' % (yearBuilt_bins[i], yearBuilt_bins[i+1])
                         for i in range(ncolors)]
-#yearBuilt_labels[0] = '<%.0f' % yearBuilt_bins[1]
 yearBuilt_labels.append('>%.0f' % yearBuilt_bins[-1])
 
 cb = colorbar_index(ncolors=ncolors+1, cmap=cmap, shrink=0.5, labels=yearBuilt_labels)
