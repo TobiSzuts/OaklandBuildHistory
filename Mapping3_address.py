@@ -564,3 +564,41 @@ m.oakland_info[0]
 with fiona.open(baseFile + '.shp') as source:
     source.next()    
     print(source.next())
+    
+#%% Look up one address
+
+target = '684 MacArthur Blvd'
+
+for (key, value) in data_queried.items() :
+    fullAddress = '{} {} {}'.format(value['properties']['ADDR_HN'], 
+                                 value['properties']['ADDR_SN'],
+                                 value['properties']['ADDR_ST'])
+    if fullAddress.lower() == target.lower() :
+        print(key, value)
+        
+#%% Create neighborhood labels
+
+neighborhoods = {
+    'Cleveland Heights': (37.8047442,-122.2447068),
+    'Clinton': (37.7946986,-122.2444385), 
+    'Trestle Glen': (37.8080673,-122.2296971), 
+    'Lakeshore': (37.8133193,-122.2402448),
+    'Crocker Heighlands': (37.8129803,-122.2264073), 
+    'Grand Lake': (37.8166072,-122.2460028),
+    'Haddon Hill': (37.807131,-122.2474933), 
+    'Lake Merritt': (37.7974416,-122.2553414),
+    'Arbor Villa': (37.8012314,-122.2423577),
+    'Bella Vista': (37.7995322,-122.2371857)}
+#%%
+"""
+    'Cleveland Heights': (37.8047442,-122.2447068),
+    'Clinton': (37.7949699,-122.2495454), 
+    'Trestle Glen': (37.8061267,-122.2399839), 
+    'Lakeshore': (37.813227,-122.2416564),
+    'Crocker Heighlands': (37.8129803,-122.2264073), 
+    'Grand Lake': (37.8166072,-122.2460028),
+    'Haddon Hill': (37.807131,-122.2474933), 
+    'Lake Merritt': (37.7974416,-122.2553414),
+    'Arbor Villa': (37.8019314,-122.2405577),
+    'Bella Vista': (37.7995322,-122.2371857)}
+"""

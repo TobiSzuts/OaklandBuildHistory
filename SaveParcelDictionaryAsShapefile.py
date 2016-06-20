@@ -51,8 +51,11 @@ with fiona.drivers():
         for (i,f) in enumerate(data_queried) :
             if f <= radius :   
                 if 'yearBuilt' in data_queried[f]['zillow'] :
+                    if float(data_queried[f]['zillow']['yearBuilt']) < 1800 :
+                        print(f, data_queried[f]['zillow']['yearBuilt'])
                     data_queried[f]['properties']['YEARBUILT'] = data_queried[f]['zillow']['yearBuilt']
                     data_queried[f].pop('zillow')
+                    
                 else :
                     data_queried[f]['properties']['YEARBUILT'] = np.nan
                 # reorder dictionary to match schema order
