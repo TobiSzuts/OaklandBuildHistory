@@ -6,6 +6,8 @@ and create a choropleth map coded by year each structure was built.
 Colorbar definitions and general outline are from 
 http://sensitivecities.com/so-youd-like-to-make-a-map-using-python-EN.html#.V2B4hK4tWbj
 
+Focus on Arborvilla
+
 Created on Wed Jun  8 09:45:41 2016
 @author: tobis
 """
@@ -72,9 +74,8 @@ def cmap_discretize(cmap, N):
 baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'
 
 
-# compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
-center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 0.6                           # in km
+center = geopy.Point(37.8012314, -122.2423577)        # (lat, long), Arbor Villa
+radius = 0.4                           # in km
 ur = distance(kilometers=radius*2**0.5).destination(center, +45)
 ll = distance(kilometers=radius*2**0.5).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
@@ -126,7 +127,7 @@ df_map['patches'] = df_map['poly'].map(lambda x: PolygonPatch(
     zorder=4))
 
 # create colormap based on year built
-cmap_range = (1885.5, 1930.5)
+cmap_range = (1924.5, 1951.5)
 #cmap_range = (cmap_range[0]-(cmap_range[1]-cmap_range[0])/(ncolors-1), cmap_range[1])
 ncolors = 9
 yearBuilt_bins = np.linspace(min(cmap_range), max(cmap_range), ncolors+1)
@@ -203,7 +204,7 @@ m.drawmapscale(
     fillcolor1='w', fillcolor2='#555555',
     fontcolor='#555555',
     zorder=4)
-plt.title("Oakland housing development, 1890-1930")
+plt.title("Arbor Villa development, 1926-1935")
 plt.tight_layout()
 # this will set the image width to 722px at 100dpi
 fig.set_size_inches(7.22, 5.25)  # use for larger size
