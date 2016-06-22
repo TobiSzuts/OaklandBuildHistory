@@ -23,6 +23,7 @@ from descartes import PolygonPatch
 from itertools import chain
 import geopy.distance
 distance = geopy.distance.vincenty    
+from OaklandNeighborhoodLabels import NeighborhoodLabels
 
 # Convenience functions for working with colour ramps and bars
 def colorbar_index(ncolors, cmap, labels=None, **kwargs):
@@ -67,14 +68,12 @@ def cmap_discretize(cmap, N):
         cdict[key] = [(indices[i], colors_rgba[i - 1, ki], colors_rgba[i, ki]) for i in range(N + 1)]
     return matplotlib.colors.LinearSegmentedColormap(cmap.name + "_%d" % N, cdict, 1024)
 
-
 # shapefile
 baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'
 
-
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
 center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 0.6                           # in km
+radius = 1.4                           # in km
 ur = distance(kilometers=radius*2**0.5).destination(center, +45)
 ll = distance(kilometers=radius*2**0.5).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
@@ -126,15 +125,14 @@ df_map['patches'] = df_map['poly'].map(lambda x: PolygonPatch(
     zorder=4))
 
 # create colormap based on year built
-cmap_range = (1885.5, 1930.5)
+cmap_range = (1915.5, 1960.5)
 #cmap_range = (cmap_range[0]-(cmap_range[1]-cmap_range[0])/(ncolors-1), cmap_range[1])
 ncolors = 9
 yearBuilt_bins = np.linspace(min(cmap_range), max(cmap_range), ncolors+1)
 cmap = matplotlib.cm.coolwarm
-# set_bad doesn't work with BoundaryNorm
 cmap.set_bad(color='white')       # if yearBuilt is nan
 cmap.set_under(color=cmap(0))       # if yearBuilt less than min(range)
-cmap.set_over(color='white')       # if yearBuilt is more than max(range)
+cmap.set_over(color='red')       # if yearBuilt is more than max(range)
 norm = matplotlib.colors.BoundaryNorm(yearBuilt_bins, ncolors)
 df_map['color'] = norm(df_map.yearBuilt) 
 # normalization changes nans to -1, same as underflow
@@ -174,6 +172,7 @@ smallprint = ax.text(
     color='#555555',
     transform=ax.transAxes)
 
+neighborhoods = NeighborhoodLabels()
 for (k, v) in neighborhoods.items() :
     pos = m(v[1], v[0])
     if window_polygon.contains(Point(pos)) is True :
@@ -196,14 +195,14 @@ for (k, v) in neighborhoods.items() :
 m.drawmapscale(
     coords[0] + w*0.8, coords[1] + h * 0.05,
     coords[0], coords[1],
-    1000*radius/2,   # length, in m
+    1000,   # length, in m
     barstyle='fancy', labelstyle='simple',
     units = 'm',
 #    format='%.2f',
     fillcolor1='w', fillcolor2='#555555',
     fontcolor='#555555',
     zorder=4)
-plt.title("Oakland housing development, 1890-1930")
+plt.title("Oakland housing development, 1920-1960")
 plt.tight_layout()
 # this will set the image width to 722px at 100dpi
 fig.set_size_inches(7.22, 5.25)  # use for larger size

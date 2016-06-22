@@ -6,7 +6,7 @@ and create a choropleth map coded by year each structure was built.
 Colorbar definitions and general outline are from 
 http://sensitivecities.com/so-youd-like-to-make-a-map-using-python-EN.html#.V2B4hK4tWbj
 
-Focus on Arborvilla
+Focus on Arborvilla's development in the span 1920-1950.
 
 Created on Wed Jun  8 09:45:41 2016
 @author: tobis

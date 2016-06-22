@@ -58,7 +58,10 @@ with fiona.drivers():
                 data_errors[f]['geometry'] = data_errors[f]['value']['geometry']
                 data_errors[f]['properties']['YEARBUILT'] = np.nan
                 data_errors[f].pop('key')
-                data_errors[f].pop('zillow')
+                try :
+                    data_errors[f].pop('zillow')
+                except :
+                    pass
                 data_errors[f].pop('value')
 #                data_errors[f]['value'].pop('centroid')
                 # reorder dictionary to match schema order

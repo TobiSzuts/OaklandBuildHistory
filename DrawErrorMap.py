@@ -27,7 +27,7 @@ errorFile = 'data/Oakland_parcels_errors/Oakland_parcels_errors'
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
 center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 1.5                         # in km
+radius = 2                         # in km
 ur = distance(kilometers=radius).destination(center, +45)
 ll = distance(kilometers=radius).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
