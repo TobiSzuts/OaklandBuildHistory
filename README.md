@@ -7,9 +7,13 @@ Created on Sat May 21 13:55:34 2016
 
 # OaklandBuildHistory
 
-This project explores the year houses were built in Oakland, focused on several neighborhoods (not the entire city, at least to begin with).
+This project explores the year houses were built in a few
+neighborhoods of Oakland, focusing on the late 19th and early 20th
+Century.
 
-Initially, it will display on a map the year each house was built.  This will be a chloropleth map, with the polygons being the parcel numbers.
+An explanation of the project is available in 'Oakland
+development.ipynb', which describes all of the relevant scripts here.
 
-Basic strategy is to use parcel information from the county of Alameda to find each parcel in a neighborhood (by distance from a point), then use reverse geocode API from Google to find the street number, then query property info for that address on Zillow.
-
+Also included are several map images.  The raw data set is referenced
+in the jupyter notebook mentioned above, and the processed data set is
+'Oakland_parcels_queried.zip'.
