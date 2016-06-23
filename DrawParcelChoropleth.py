@@ -73,7 +73,7 @@ baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
 center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 1.4                           # in km
+radius = 1.7                           # in km
 ur = distance(kilometers=radius*2**0.5).destination(center, +45)
 ll = distance(kilometers=radius*2**0.5).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
@@ -125,8 +125,8 @@ df_map['patches'] = df_map['poly'].map(lambda x: PolygonPatch(
     zorder=4))
 
 # create colormap based on year built
+#cmap_range = (1915.5, 1960.5)
 cmap_range = (1915.5, 1960.5)
-#cmap_range = (cmap_range[0]-(cmap_range[1]-cmap_range[0])/(ncolors-1), cmap_range[1])
 ncolors = 9
 yearBuilt_bins = np.linspace(min(cmap_range), max(cmap_range), ncolors+1)
 cmap = matplotlib.cm.coolwarm
@@ -137,7 +137,6 @@ norm = matplotlib.colors.BoundaryNorm(yearBuilt_bins, ncolors)
 df_map['color'] = norm(df_map.yearBuilt) 
 # normalization changes nans to -1, same as underflow
 df_map['color'][df_map.yearBuilt<1700] = -2
-#df_map
 
 plt.clf()
 fig = plt.figure()
@@ -145,22 +144,15 @@ ax = fig.add_subplot(111, axisbg='w', frame_on=False)
 
 # plot parcels by adding the PatchCollection to the axes instance
 pc = PatchCollection(df_map['patches'].values, match_original=True)
-#pc.set_facecolor(cmap(norm(df_map.yearBuilt)/(ncolors-1)))
 pc.set_facecolor(cmap(np.ma.masked_less_equal(list(df_map.color), -2)/(ncolors-1)))
 ax.add_collection(pc)
 
 yearBuilt_labels = ['%.0f-%.0f' % (np.ceil(yearBuilt_bins[i]), np.floor(yearBuilt_bins[i+1]))
                         for i in range(ncolors)]
-#yearBuilt_labels.append('>%.0f' % yearBuilt_bins[-1])
 yearBuilt_labels[0] = '<%.0f' % yearBuilt_bins[1]
 
-#yearBuilt_bins = np.insert(yearBuilt_bins, 0, 1700)
-#yearBuilt_bins = np.append(yearBuilt_bins, 2016)
 cb = colorbar_index(ncolors=ncolors, cmap=cmap, shrink=0.5, 
                     labels=yearBuilt_labels)
-#                    boundaries = [i for i in range(ncolors+1)])
-#                    , extend='both')
-#                    boundaries = [1700] + list(yearBuilt_bins) + [2016])
 cb.ax.tick_params(labelsize=6)
 
 # copyright and source data info
@@ -176,13 +168,13 @@ neighborhoods = NeighborhoodLabels()
 for (k, v) in neighborhoods.items() :
     pos = m(v[1], v[0])
     if window_polygon.contains(Point(pos)) is True :
-        print(k,v)
         ax.text(pos[0], pos[1],
         k,
         ha='center', va='center',
         size=6,
         color='black')
-    
+
+# code to plot a point, used for verifying a new coordinate   
 #pos_fidicual = m(-122.2436564, 37.813227)    
 #dev = m.scatter(
 #    pos_fidicual[0], pos_fidicual[1],
@@ -198,7 +190,6 @@ m.drawmapscale(
     1000,   # length, in m
     barstyle='fancy', labelstyle='simple',
     units = 'm',
-#    format='%.2f',
     fillcolor1='w', fillcolor2='#555555',
     fontcolor='#555555',
     zorder=4)
@@ -206,6 +197,5 @@ plt.title("Oakland housing development, 1920-1960")
 plt.tight_layout()
 # this will set the image width to 722px at 100dpi
 fig.set_size_inches(7.22, 5.25)  # use for larger size
-#fig.set_size_inches(3.5, 2.5)
 plt.savefig('data/Oakland_temp.png', dpi=300, alpha=True)
 plt.show()

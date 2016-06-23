@@ -27,7 +27,7 @@ errorFile = 'data/Oakland_parcels_errors/Oakland_parcels_errors'
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
 center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 2                         # in km
+radius = 2                        # in km
 ur = distance(kilometers=radius).destination(center, +45)
 ll = distance(kilometers=radius).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
@@ -74,15 +74,22 @@ df_map['patches'] = df_map['poly'].map(lambda x: PolygonPatch(
     ec='#888888', lw=.25, alpha=.9,
     zorder=4))
 
-# create colormap based on year built
-cmap_range = (1880, 1940)
-ncolors = 8
-yearBuilt_bins = np.linspace(min(cmap_range), max(cmap_range), ncolors+1)
-#norm = matplotlib.colors.Normalize(vmin=min(cmap_range), vmax=max(cmap_range))
-cmap = matplotlib.cm.coolwarm
-cmap.set_bad(color='white')       # if yearBuilt is nan
-norm = matplotlib.colors.BoundaryNorm(yearBuilt_bins, ncolors)
-#setColor = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+# color code the errors
+for (yb, p, i) in zip(df_map.yearBuilt, df_map.patches, range(50000)) :
+    if np.isnan(yb) :
+        p.set_color('green')
+    elif yb<1830 :          # because the oldest building in Oakland is from the 1850s
+        p.set_color('blue')
+    elif yb>2016 :
+        p.set_color('magenta')
+    
+## create colormap based on year built
+#cmap_range = (1880, 1940)
+#ncolors = 8
+#yearBuilt_bins = np.linspace(min(cmap_range), max(cmap_range), ncolors+1)
+#cmap = matplotlib.cm.coolwarm
+#cmap.set_bad(color='white')       # if yearBuilt is nan
+#norm = matplotlib.colors.BoundaryNorm(yearBuilt_bins, ncolors)
 
 m.readshapefile(
     errorFile,
@@ -102,20 +109,13 @@ df_map_error['patches'] = df_map_error['poly'].map(lambda x: PolygonPatch(
     ec='black', lw=.25, alpha=.9,
     zorder=4))
 
-
-## transform data_errors dictionary into an array
-#data_errors_points = pd.Series([Point(m(e['value']['centroid'][1], 
-#                                        e['value']['centroid'][0]))
-#                        for e in data_errors])
-
 plt.clf()
 fig = plt.figure()
 ax = fig.add_subplot(111, axisbg='w', frame_on=False)
 
 # plot boroughs by adding the PatchCollection to the axes instance
-pc = PatchCollection(df_map['patches'].values, match_original=True)
-#pc.set_facecolor(cmap(norm(df_map.yearBuilt)/ncolors));
-ax.add_collection(pc)
+ax.add_collection(PatchCollection(df_map['patches'].values, match_original=True))
+ax.add_collection(PatchCollection(df_map_error['patches'].values, match_original=True))
 
 ## draw errors as points
 #dev = m.scatter([p.x for p in data_errors_points], [p.y for p in data_errors_points],
@@ -124,16 +124,26 @@ ax.add_collection(pc)
 #          alpha=0.9, antialiased=True,
 #          label='Error Locations')
 
-ax.add_collection(PatchCollection(df_map_error['patches'].values, match_original=True))
+ncolors = 2
+cmap = matplotlib.colors.ListedColormap(['b', 'r'])
+norm = matplotlib.colors.BoundaryNorm([0, 10, 20], ncolors)
+error_labels = ['Invalid date', 'Address not \nin Zillow']
+cb = colorbar_index(ncolors=ncolors, cmap=cmap, shrink=0.25, 
+                    labels=error_labels, aspect=10)
 
+cb.ax.tick_params(labelsize=6)
+cb.ax.tick_params(size=0)
 
-yearBuilt_labels = ['%.0f-%.0f' % (yearBuilt_bins[i], yearBuilt_bins[i+1])
-                        for i in range(ncolors)]
-#yearBuilt_labels[0] = '<%.0f' % yearBuilt_bins[1]
-yearBuilt_labels.append('>%.0f' % yearBuilt_bins[-1])
-
-#cb = colorbar_index(ncolors=ncolors+1, cmap=cmap, shrink=0.5, labels=yearBuilt_labels)
-#cb.ax.tick_params(labelsize=6)
+neighborhoods = NeighborhoodLabels()
+for (k, v) in neighborhoods.items() :
+    pos = m(v[1], v[0])
+    if window_polygon.contains(Point(pos)) is True :
+#        print(k,v)
+        ax.text(pos[0], pos[1],
+        k,
+        ha='center', va='center',
+        size=6,
+        color='black')
 
 # Draw a map scale
 m.drawmapscale(
@@ -142,14 +152,12 @@ m.drawmapscale(
     radius/2*1000,   # length
     barstyle='fancy', labelstyle='simple',
     units = 'm',
-#    format='%.2f',
     fillcolor1='w', fillcolor2='#555555',
     fontcolor='#555555',
     zorder=4)
-plt.title("Parcels in Oakland returning an error from Zillow")
+plt.title("Parcels in Oakland with an error")
 plt.tight_layout()
 # this will set the image width to 722px at 100dpi
 fig.set_size_inches(7.22, 5.25)  # use for larger size
-#fig.set_size_inches(3.5, 2.5)
 plt.savefig('data/Oakland_temp.png', dpi=300, alpha=True)
 plt.show()
