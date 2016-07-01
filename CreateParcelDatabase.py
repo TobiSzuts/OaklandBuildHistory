@@ -25,7 +25,7 @@ zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
 
 inProcessFile = 'data/OaklandParcels_inProcess.pkl'
 radius = 2000            # only process parcels within this radius
-numToProcess = 900      # zillow API limits to 1000 queries per day
+numToProcess = 1000      # zillow API limits to 1000 queries per day
 
 # load data structures
 with open(inProcessFile, 'rb') as fid :
