@@ -25,7 +25,7 @@ del compressed
 
 baseFile = 'data/Oakland_parcels/parcels'       # source of shape info in dictionary
 outputFileName = 'Oakland_parcels_queried'
-radius = 2000                                   # in m
+radius = 8000                                   # in m
 
 # create output directory if it doesn't exist yet
 if os.path.isdir('data/' + outputFileName) is False :
