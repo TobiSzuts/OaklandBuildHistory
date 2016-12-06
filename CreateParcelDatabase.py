@@ -38,48 +38,59 @@ del compressed
 
 sortedKeys = [k for k in sorted(data_raw) if k < radius]
 
-for (i, key) in zip(range(numToProcess), sortedKeys) :
+numProcessed = 0
+while numProcessed < numToProcess : 
     # set up timer to keep requests under 10/s
+    key = sortedKeys.pop(1)
+
     startT = time.time()
 
-    try :
-        # read in address details from input dictionary
-        zp = {'address' : '{} {} {}'.format(data_raw[key]['properties']['ADDR_HN'],
-                      data_raw[key]['properties']['ADDR_SN'],
-                      data_raw[key]['properties']['ADDR_ST']),
-              'citystatezip' : 'Oakland, CA ' + str(data_raw[key]['properties']['ZIP']),
-              'zws-id' : zid}
-        r = requests.get(zurl, params=zp)
-        r_dict = xmltodict.parse(r.text)['SearchResults:searchresults']
-
-        if r_dict['message']['code'] == '0' :       # valid response?
-            r_dict = r_dict['response']['results']['result']
-            
-            # in case the response is a list of multiple entries, take only the first one
-            if type(r_dict)==list :
-                r_dict = r_dict[0]
-            # prune result dictionary
-            r_dict.pop('links')
-            r_dict.pop('zestimate')
-            r_dict.pop('localRealEstate')
-            data_raw[key]['zillow'] = r_dict
-            # transfer  to output dictionary
-            data_queried[key] = data_raw.pop(key)
-            
-        else :
-            print('For request {}, zillow code is {}. Here''s the record:'.format(zp['address'], r_dict['message']['code']))
-            print(r_dict)
-            print('-'*60)
-            # transfer info to error dictionary for offline analysis
-            data_errors.append({'key': key, 'value': data_raw.pop(key), 
-                                  'zillow': r_dict, 'source': 'zillow'})
-    except Exception as exc:
-        print('Unspecified error: {}'.format(exc))
+    zp = {'address' : '{} {} {}'.format(data_raw[key]['properties']['ADDR_HN'],
+                  data_raw[key]['properties']['ADDR_SN'],
+                  data_raw[key]['properties']['ADDR_ST']),
+          'citystatezip' : 'Oakland, CA ' + str(data_raw[key]['properties']['ZIP']),
+          'zws-id' : zid}
+    if ( data_raw[key]['properties']['ADDR_HN'] and 
+        data_raw[key]['properties']['ADDR_SN'] and
+        data_raw[key]['properties']['ADDR_ST'] ) :
+        try :
+            # read in address details from input dictionary
+            r = requests.get(zurl, params=zp)
+            r_dict = xmltodict.parse(r.text)['SearchResults:searchresults']
+    
+            if r_dict['message']['code'] == '0' :       # valid response?
+                r_dict = r_dict['response']['results']['result']
+                
+                # in case the response is a list of multiple entries, take only the first one
+                if type(r_dict)==list :
+                    r_dict = r_dict[0]
+                # prune result dictionary
+                r_dict.pop('links')
+                r_dict.pop('zestimate')
+                r_dict.pop('localRealEstate')
+                data_raw[key]['zillow'] = r_dict
+                # transfer  to output dictionary
+                data_queried[key] = data_raw.pop(key)
+                
+            else :
+                print('For request {}, zillow code is {}. Here''s the record:'.format(zp['address'], r_dict['message']['code']))
+                print(r_dict)
+                print('-'*60)
+                # transfer info to error dictionary for offline analysis
+                data_errors.append({'key': key, 'value': data_raw.pop(key), 
+                                      'zillow': r_dict, 'source': 'zillow'})
+        except Exception as exc:
+            print('Unspecified error: {}'.format(exc))
+            data_errors.append({'key': key, 'value': data_raw.pop(key),
+                                  'source': 'exception'})
+        numProcessed += 1
+        # log status to command line
+        print(numProcessed, ' ', zp['address'])
+    else :      # invalid address
+        print('\tInvalid address: ' + zp['address'])
         data_errors.append({'key': key, 'value': data_raw.pop(key),
-                              'source': 'exception'})
-            
-    # log status
-    print(i, ' ', zp['address'])
+                                  'source': 'Invalid address'})
+    
 
     endT = time.time()
     if endT - startT < 0.2 :
