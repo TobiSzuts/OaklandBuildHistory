@@ -24,7 +24,7 @@ with open('../private/API_keys.pkl', 'rb') as datafile:
 zurl = 'http://www.zillow.com/webservice/GetDeepSearchResults.htm?'
 
 inProcessFile = 'data/OaklandParcels_inProcess.pkl'
-radius = 8000            # only process parcels within this radius
+radius = 20000            # only process parcels within this radius
 numToProcess = 1000      # zillow API limits to 1000 queries per day
 
 # load data structures
@@ -39,9 +39,9 @@ del compressed
 sortedKeys = [k for k in sorted(data_raw) if k < radius]
 
 numProcessed = 0
-while numProcessed < numToProcess : 
+while numProcessed < numToProcess and len(sortedKeys) > 0 : 
     # set up timer to keep requests under 10/s
-    key = sortedKeys.pop(1)
+    key = sortedKeys.pop(0)
 
     startT = time.time()
 

@@ -72,8 +72,9 @@ def cmap_discretize(cmap, N):
 baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
-center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 1.5                           # in km
+#center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
+center = geopy.Point(37.79539889, -122.21547850)        # (lat, long), rough geometric center of entire dataset
+radius = 8.3                          # in km
 ur = distance(kilometers=radius*2**0.5).destination(center, +45)
 ll = distance(kilometers=radius*2**0.5).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
@@ -160,7 +161,7 @@ cb.ax.tick_params(labelsize=6)
 # copyright and source data info
 smallprint = ax.text(
     1.3, 0.15,
-    'Tobi Szuts 2016 \nYear built data from Zillow \nParcel data gathered by Michal Migurski \nin 2011 and downloaded from \nhttp://codeforoakland.org/data-sets/#oakland1',
+    'Tobi Szuts 2017 \nYear built data from Zillow \nParcel data gathered by Michal Migurski \nin 2011 and downloaded from \nhttp://codeforoakland.org/data-sets/#oakland1',
     ha='right', va='bottom',
     size=4,
     color='#555555',
@@ -186,21 +187,21 @@ smallprint = ax.text(
 #    label='Fiducial', zorder=3)
     
 # Draw a map scale
-if radius < 1 :
+if radius < 2 :
     scaleLen = round(radius*4)/8*1000
 else :
     scaleLen = round(radius/2)*1000
 
 m.drawmapscale(
-    coords[0] + w*0.8, coords[1] + h * 0.05,
+    coords[0] + w*0.2, coords[1] + h * 0.05,        # width was 0.8 before
     coords[0], coords[1],
     int(scaleLen),   # length, in m
     barstyle='fancy', labelstyle='simple',
     units = 'm',
     fillcolor1='w', fillcolor2='#555555',
     fontcolor='#555555',
-    zorder=4)
-plt.title("Oakland housing development, 1920-1960")
+    zorder=4)       # previously was 4
+plt.title("Oakland housing development, 1895-2015")
 plt.tight_layout()
 # this will set the image width to 722px at 100dpi
 fig.set_size_inches(7.22, 5.25)  # use for larger size

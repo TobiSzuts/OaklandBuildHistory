@@ -26,10 +26,14 @@ baseFile = 'data/Oakland_parcels_queried/Oakland_parcels_queried'
 errorFile = 'data/Oakland_parcels_errors/Oakland_parcels_errors'
 
 # compute map boundscenter = (37.8058428, -122.2399758)        # (lat, long), Armenian Church
-center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
-radius = 2                        # in km
-ur = distance(kilometers=radius).destination(center, +45)
-ll = distance(kilometers=radius).destination(center, -135)
+#center = geopy.Point(37.8058428, -122.2399758)        # (lat, long), Armenian Church
+center = geopy.Point(37.79539889, -122.21547850)        # (lat, long), rough geometric center of entire dataset
+#center = geopy.Point(37.759987, -122.221965)        # (lat, long), rough geometric center of error dataset
+radius = 8.5                       # in km
+#ur = distance(kilometers=radius).destination(center, +45)
+#ll = distance(kilometers=radius).destination(center, -135)
+ur = distance(kilometers=radius*2**0.5).destination(center, +45)
+ll = distance(kilometers=radius*2**0.5).destination(center, -135)
 ur = (ur.longitude, ur.latitude)
 ll = (ll.longitude, ll.latitude)
 
@@ -134,22 +138,27 @@ cb = colorbar_index(ncolors=ncolors, cmap=cmap, shrink=0.25,
 cb.ax.tick_params(labelsize=6)
 cb.ax.tick_params(size=0)
 
-neighborhoods = NeighborhoodLabels()
-for (k, v) in neighborhoods.items() :
-    pos = m(v[1], v[0])
-    if window_polygon.contains(Point(pos)) is True :
-#        print(k,v)
-        ax.text(pos[0], pos[1],
-        k,
-        ha='center', va='center',
-        size=6,
-        color='black')
+if False :
+    neighborhoods = NeighborhoodLabels()
+    for (k, v) in neighborhoods.items() :
+        pos = m(v[1], v[0])
+        if window_polygon.contains(Point(pos)) is True :
+            ax.text(pos[0], pos[1],
+            k,
+            ha='center', va='center',
+            size=6,
+            color='black')
+
+if radius < 2 :
+    scaleLen = round(radius*4)/8*1000
+else :
+    scaleLen = round(radius/2)*1000
 
 # Draw a map scale
 m.drawmapscale(
-    coords[0] + w * 0.5, coords[1] + h * 0.1,
+    coords[0] + w * 0.2, coords[1] + h * 0.1,
     coords[0], coords[1],
-    radius/2*1000,   # length
+    int(scaleLen),   # length in meters
     barstyle='fancy', labelstyle='simple',
     units = 'm',
     fillcolor1='w', fillcolor2='#555555',

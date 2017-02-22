@@ -27,7 +27,7 @@ data_errors = {f['key']: f for f in data_errors_array}
 
 baseFile = 'data/Oakland_parcels/parcels'       # source of shape info in dictionary
 outputFileName = 'Oakland_parcels_errors'
-radius = 2000                                   # in m
+radius = 50000                                   # in m
 
 # create output directory if it doesn't exist yet
 if os.path.isdir('data/' + outputFileName) is False :
